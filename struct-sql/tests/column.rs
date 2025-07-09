@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use struct_sql::column::{Column, Columns, TColumns};
+    use struct_sql::column::{Column, TColumns};
     use struct_sql::sql_builder::SqlBuilder;
 
     use struct_sql_derive::StructSql;

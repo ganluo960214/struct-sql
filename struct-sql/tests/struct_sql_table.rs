@@ -10,11 +10,11 @@ mod tests {
     struct StructSqlTableTable {
         id: i32,
     }
-    const STRUCT_SQL_TABLE: StructSqlTableTableStructSql = StructSqlTableTableStructSql {};
+
     #[test]
     fn struct_sql_table() {
         let mut sb = SqlBuilder::default();
-        STRUCT_SQL_TABLE.struct_sql_table(&mut sb);
+        StructSqlTableTableField::id.struct_sql_table(&mut sb);
 
         let (left_sql, _) = sb.sql_command();
         let (right_sql, _) = ("\"struct_sql_table_table\"", ());
