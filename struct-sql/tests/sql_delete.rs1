@@ -1,0 +1,57 @@
+mod common;
+
+#[cfg(test)]
+mod tests {
+    use bytes::BytesMut;
+    use postgres_types::ToSql;
+    use struct_sql::condition::Condition::EQ;
+
+    use crate::common::sql_args_to_bytes;
+    use struct_sql::sql_delete::Delete;
+    use struct_sql_derive::StructSql;
+
+    ///
+    /// ```sql
+    /// CREATE TABLE IF NOT EXISTS delete_table
+    /// (
+    ///     index_field integer
+    /// )
+    /// ```
+    ///
+    #[derive(StructSql, Debug)]
+    #[struct_sql_table = "delete_table"]
+    struct DeleteTable {
+        #[struct_sql_column(name = "index_field", is_indexed = true)]
+        index_field: i32,
+    }
+    const TABLE: DeleteTable = DeleteTable { index_field: 1 };
+    const STRUCT_SQL_TABLE: DeleteTableStructSql = DeleteTableStructSql {};
+
+    #[test]
+    fn sql_delete() {
+        let delete: Delete<'_, 2> = Delete {
+            table: &STRUCT_SQL_TABLE,
+            r#where: Some(vec![EQ(
+                STRUCT_SQL_TABLE.column_index_field(),
+                &TABLE.index_field,
+            )]),
+            returning: None,
+        };
+        let (left_sql, left_args) = delete.sql_command();
+
+        let (right_sql, right_args) = (
+            "delete from delete_table where delete_table.\"index_field\" = $1",
+            &vec![&TABLE.index_field as &(dyn ToSql + Sync)],
+        );
+
+        assert_eq!(left_sql, right_sql);
+
+        let (mut left_bytes_mut, mut right_bytes_mut) = (BytesMut::default(), BytesMut::default());
+
+        sql_args_to_bytes(left_sql.as_str(), &left_args, &mut left_bytes_mut);
+
+        sql_args_to_bytes(right_sql, right_args, &mut right_bytes_mut);
+
+        assert_eq!(left_bytes_mut, right_bytes_mut);
+    }
+}

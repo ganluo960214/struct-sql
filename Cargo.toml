@@ -1,0 +1,15 @@
+[workspace]
+members = [
+    "bins/struct-sql-cli",
+    "struct-sql",
+    "struct-sql-macros",
+]
+resolver = "2"
+
+[workspace.package]
+edition = "2024"
+
+[workspace.dependencies]
+proc-macro2 = { version = "1" }
+quote = { version = "1" }
+syn = { version = "2.0", features = ["parsing", "full"] }

@@ -1,0 +1,107 @@
+mod common;
+
+#[cfg(test)]
+mod tests {
+    use crate::common;
+    use crate::common::{sql_args_arg_slice_to_bytes, sql_args_to_bytes};
+    use bytes::BytesMut;
+    use postgres_types::ToSql;
+    use struct_sql::sql_builder::{SqlArgs, SqlBuilder};
+    use struct_sql::sql_insert::{Insert, InsertValue};
+    use struct_sql_derive::StructSql;
+
+    ///
+    /// ```sql
+    /// CREATE TABLE IF NOT EXISTS insert_table
+    /// (
+    ///     id integer
+    /// )
+    /// ```
+    ///
+    #[derive(StructSql, Debug)]
+    #[struct_sql_table = "insert_table"]
+    struct InsertTable {
+        #[struct_sql_column(name = "id", is_indexed = true)]
+        id: i32,
+        #[struct_sql_column(name = "id2", is_indexed = true)]
+        id2: i32,
+    }
+    const TABLE: InsertTable = InsertTable { id: 2, id2: 3 };
+    const STRUCT_SQL_TABLE: InsertTableStructSql = InsertTableStructSql {};
+
+    #[test]
+    fn sql_insert() {
+        let insert: &Insert<2, 0, 1> = &Insert {
+            table: &STRUCT_SQL_TABLE,
+            insert_value: InsertValue(
+                [STRUCT_SQL_TABLE.column_id(), STRUCT_SQL_TABLE.column_id2()],
+                vec![[&TABLE.id, &TABLE.id2]],
+            ),
+            on_conflict: None,
+            returning: Some([STRUCT_SQL_TABLE.column_id()]),
+        };
+
+        // check sql
+        let (left_sql, left_args) = insert.sql_command();
+        let (right_sql, right_args) = (
+            "insert into insert_table (\"id\", \"id2\") values ($1, $2) returning \"id\"",
+            &insert.insert_value.1,
+        );
+        assert_eq!(left_sql, right_sql);
+
+        let (mut left_bytes_mut, mut right_bytes_mut) = (BytesMut::new(), BytesMut::new());
+
+        sql_args_to_bytes(left_sql.as_str(), &left_args, &mut left_bytes_mut);
+
+        sql_args_arg_slice_to_bytes(right_sql, &right_args, &mut right_bytes_mut);
+
+        assert_eq!(left_bytes_mut, right_bytes_mut);
+    }
+
+    #[test]
+    fn insert_value_table() {
+        let mut sb = SqlBuilder::default();
+        let c = InsertValue([STRUCT_SQL_TABLE.column_id()], vec![[&TABLE.id]]);
+
+        c.insert_value(&mut sb);
+
+        let (left_sql, left_args) = sb.sql_command();
+
+        let (right_sql, right_args) = (
+            " (\"id\") values ($1)",
+            vec![&TABLE.id as &(dyn ToSql + Sync)],
+        );
+
+        assert_eq!(left_sql, right_sql);
+
+        let (mut left_bytes_mut, mut right_bytes_mut) = (BytesMut::default(), BytesMut::default());
+
+        writes_sql_args_to_bytes(
+            right_sql,
+            left_args,
+            right_args,
+            &mut left_bytes_mut,
+            &mut right_bytes_mut,
+        );
+
+        assert_eq!(left_bytes_mut, right_bytes_mut)
+    }
+
+    fn writes_sql_args_to_bytes(
+        sql: &str,
+        left_args: SqlArgs,
+        right_args: SqlArgs,
+        left_bytes_mut: &mut BytesMut,
+        right_bytes_mut: &mut BytesMut,
+    ) {
+        let sql = format!("{}{}", "insert into insert_table", sql);
+
+        common::writes_sql_args_to_bytes(
+            sql.as_str(),
+            left_args,
+            right_args,
+            left_bytes_mut,
+            right_bytes_mut,
+        )
+    }
+}

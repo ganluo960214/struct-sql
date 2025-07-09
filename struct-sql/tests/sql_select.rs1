@@ -1,0 +1,46 @@
+#[cfg(test)]
+mod tests {
+    use struct_sql::condition::Condition::EQ;
+    use struct_sql::order_by::OrderByItem::ASC;
+    use struct_sql::r#for::For;
+    use struct_sql::sql_select::Select;
+    use struct_sql_derive::StructSql;
+
+    ///
+    /// ```sql
+    /// CREATE TABLE IF NOT EXISTS select_table
+    /// (
+    ///     id integer
+    /// )
+    /// ```
+    ///
+    #[derive(StructSql, Debug)]
+    #[struct_sql_table = "select_table"]
+    struct SelectTable {
+        #[struct_sql_column(name = "id", is_indexed = true)]
+        id: i32,
+    }
+    const TABLE: SelectTable = SelectTable { id: 2 };
+    const STRUCT_SQL_TABLE: SelectTableStructSql = SelectTableStructSql {};
+
+    #[test]
+    fn sql_select() {
+        let select = Select {
+            columns: [STRUCT_SQL_TABLE.column_id()],
+            from: &STRUCT_SQL_TABLE,
+            r#where: None,
+            group_by: Some([STRUCT_SQL_TABLE.column_id()]),
+            having: Some(vec![EQ(STRUCT_SQL_TABLE.column_id(), &TABLE.id)]),
+            order_by: Some(vec![ASC(STRUCT_SQL_TABLE.column_id())]),
+            limit: Some(1),
+            offset: Some(0),
+            r#for: Some(For::Update),
+        };
+
+        let (left_sql, _left_args) = select.sql_command();
+
+        let right_sql = "select select_table.\"id\" from select_table group by select_table.\"id\" having select_table.\"id\" = $1 order by select_table.\"id\" asc limit 1 offset 0 for update";
+
+        assert_eq!(left_sql, right_sql)
+    }
+}

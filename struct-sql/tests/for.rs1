@@ -1,0 +1,19 @@
+#[cfg(test)]
+mod tests {
+    use struct_sql::r#for::For;
+    use struct_sql::sql_builder::SqlBuilder;
+
+    #[test]
+    fn r#for() {
+        let mut sb = SqlBuilder::default();
+
+        let r#for = For::Update;
+        r#for.r#for(&mut sb);
+
+        let (left_sql, _) = sb.sql_command();
+
+        let right_sql = " for update";
+
+        assert_eq!(left_sql, right_sql)
+    }
+}

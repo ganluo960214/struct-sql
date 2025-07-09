@@ -1,0 +1,31 @@
+#[cfg(test)]
+mod tests {
+    use struct_sql::order_by::OrderByItem::ASC;
+    use struct_sql::order_by::TOrderBy;
+    use struct_sql::sql_builder::SqlBuilder;
+    use struct_sql_derive::StructSql;
+
+    #[derive(StructSql, Debug)]
+    #[struct_sql_table = "order_by_table"]
+    #[allow(dead_code)]
+    struct InsertValueTable {
+        #[struct_sql_column(name = "order_by_name", is_indexed = true)]
+        #[allow(dead_code)]
+        order_by_name: i32,
+    }
+    const STRUCT_SQL_TABLE: InsertValueTableStructSql = InsertValueTableStructSql {};
+
+    #[test]
+    fn order_by_table() {
+        let mut sb = SqlBuilder::default();
+        let c = vec![ASC(STRUCT_SQL_TABLE.column_order_by_name())];
+
+        c.order_by(&mut sb);
+
+        let (left_sql, _) = sb.sql_command();
+
+        let (right_sql, _) = (" order by order_by_table.\"order_by_name\" asc", ());
+
+        assert_eq!(left_sql, right_sql);
+    }
+}

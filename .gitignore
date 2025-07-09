@@ -1,0 +1,5 @@
+**/target
+
+**/_*.rs
+
+struct-sql2

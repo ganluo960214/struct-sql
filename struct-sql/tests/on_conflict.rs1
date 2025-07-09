@@ -1,0 +1,94 @@
+mod common;
+
+#[cfg(test)]
+mod tests {
+    use bytes::BytesMut;
+    use struct_sql::on_conflict::DoUpdateValues::Arg;
+    use struct_sql::on_conflict::{DoUpdateValue, OnConflictAction, OnConflictTarget};
+    use struct_sql::sql_builder::SqlBuilder;
+    use struct_sql_derive::StructSql;
+
+    #[derive(StructSql, Debug)]
+    #[struct_sql_table = "on_conflict"]
+    struct OnConflictTable {
+        #[struct_sql_column(name = "column_name1", is_indexed = true)]
+        #[allow(dead_code)]
+        column_name1: i32,
+        #[struct_sql_column(name = "column_name2", is_indexed = true)]
+        #[allow(dead_code)]
+        column_name2: i32,
+        #[struct_sql_column(name = "column_name3", is_indexed = true)]
+        #[allow(dead_code)]
+        column_name3: i32,
+    }
+    const TABLE: OnConflictTable = OnConflictTable {
+        column_name1: 2,
+        column_name2: 2,
+        column_name3: 2,
+    };
+    const STRUCT_SQL_TABLE: OnConflictTableStructSql = OnConflictTableStructSql {};
+
+    #[test]
+    fn on_conflict_target_primary_key_or_unique_columns() {
+        let mut sb = SqlBuilder::default();
+
+        let on_conflict_action = OnConflictTarget::PrimaryKeyOrUniqueColumns([
+            STRUCT_SQL_TABLE.column_column_name1(),
+            STRUCT_SQL_TABLE.column_column_name2(),
+        ]);
+
+        on_conflict_action.on_conflict_target(&mut sb);
+
+        assert_eq!(sb.sql_command().0, " (\"column_name1\", \"column_name2\")");
+    }
+
+    #[test]
+    fn on_conflict_target_primary_key_or_unique_constraint_name() {
+        let mut sb = SqlBuilder::default();
+
+        let on_conflict_action: OnConflictTarget<0> =
+            OnConflictTarget::PrimaryKeyOrUniqueConstraintName("test_pk");
+
+        on_conflict_action.on_conflict_target(&mut sb);
+
+        assert_eq!(sb.sql_command().0, " on constraint test_pk");
+    }
+
+    #[test]
+    fn on_conflict_action_do_nothing() {
+        let mut sb = SqlBuilder::default();
+
+        let on_conflict_action = OnConflictAction::DoNothing;
+
+        on_conflict_action.on_conflict_action(&mut sb);
+
+        assert_eq!(sb.sql_command().0, " do nothing");
+    }
+
+    #[test]
+    fn on_conflict_action_do_update() {
+        let mut sb = SqlBuilder::default();
+
+        let on_conflict_action = OnConflictAction::DoUpdate(DoUpdateValue::from([(
+            STRUCT_SQL_TABLE.column_column_name1(),
+            Arg(&TABLE.column_name1),
+        )]));
+
+        on_conflict_action.on_conflict_action(&mut sb);
+
+        let (left_sql, _left_args) = sb.sql_command();
+        let (right_sql, _right_args) = (
+            " do update set \"column_name1\" = $1",
+            vec![&TABLE.column_name1],
+        );
+        assert_eq!(left_sql, right_sql);
+
+        let (mut _left_bytes_mut, mut _right_bytes_mut) =
+            (BytesMut::default(), BytesMut::default());
+
+        // let sql = format!("insert into on_conflict ()",);
+        //
+        // writes_sql_args_to_bytes(right_sql, left_args, right_args, &mut left_bytes_mut, &mut right_bytes_mut);
+        todo!()
+    }
+}

@@ -1,0 +1,76 @@
+mod common;
+
+#[cfg(test)]
+mod tests {
+    use crate::common::sql_args_to_bytes;
+    use bytes::BytesMut;
+    use postgres_types::ToSql;
+    use struct_sql::condition::Condition::EQ;
+    use struct_sql::having::{Having, THaving};
+    use struct_sql::sql_builder::{SqlArgs, SqlBuilder};
+    use struct_sql_derive::StructSql;
+
+    ///
+    /// ```sql
+    /// CREATE TABLE IF NOT EXISTS having_table
+    /// (
+    ///     having_name integer
+    /// )
+    /// ```
+    ///
+    #[derive(StructSql, Debug)]
+    #[struct_sql_table = "having_table"]
+    struct ColumnTable {
+        #[struct_sql_column(name = "having_name", is_indexed = true)]
+        having_name: i32,
+    }
+    const TABLE: ColumnTable = ColumnTable { having_name: 0 };
+    const STRUCT_SQL_TABLE: ColumnTableStructSql = ColumnTableStructSql {};
+
+    #[test]
+    fn having() {
+        let mut sb = SqlBuilder::default();
+        let c: Having = vec![EQ(
+            STRUCT_SQL_TABLE.column_having_name(),
+            &TABLE.having_name,
+        )];
+        c.having(&mut sb);
+
+        let (left_sql, left_args) = sb.sql_command();
+
+        let (right_sql, right_args) = (
+            " having having_table.\"having_name\" = $1",
+            vec![&TABLE.having_name as &(dyn ToSql + Sync)],
+        );
+
+        assert_eq!(left_sql, right_sql);
+
+        let (mut left_bytes_mut, mut right_bytes_mut) = (BytesMut::default(), BytesMut::default());
+
+        writes_sql_args_to_bytes(
+            right_sql,
+            left_args,
+            right_args,
+            &mut left_bytes_mut,
+            &mut right_bytes_mut,
+        );
+
+        assert_eq!(left_bytes_mut, right_bytes_mut)
+    }
+
+    fn writes_sql_args_to_bytes(
+        sql: &str,
+        left_args: SqlArgs,
+        right_args: SqlArgs,
+        mut left_bytes_mut: &mut BytesMut,
+        mut right_bytes_mut: &mut BytesMut,
+    ) {
+        let sql = format!(
+            "{}{}",
+            "select * from having_table group by having_table.\"having_name\"", sql
+        );
+
+        sql_args_to_bytes(sql.as_str(), &left_args, &mut left_bytes_mut);
+        sql_args_to_bytes(sql.as_str(), &right_args, &mut right_bytes_mut);
+    }
+}

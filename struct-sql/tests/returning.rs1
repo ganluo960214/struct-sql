@@ -1,0 +1,30 @@
+#[cfg(test)]
+mod tests {
+    use struct_sql::returning::TReturning;
+    use struct_sql::sql_builder::SqlBuilder;
+    use struct_sql_derive::StructSql;
+
+    #[derive(StructSql, Debug)]
+    #[struct_sql_table = "returning_table"]
+    #[allow(dead_code)]
+    struct ReturningTable {
+        #[struct_sql_column(name = "returning_name", is_indexed = true)]
+        #[allow(dead_code)]
+        returning_name: i32,
+    }
+    const STRUCT_SQL_TABLE: ReturningTableStructSql = ReturningTableStructSql {};
+
+    #[test]
+    fn returning_table() {
+        let mut sb = SqlBuilder::default();
+        let c = [STRUCT_SQL_TABLE.column_returning_name()];
+
+        c.returning(&mut sb);
+
+        let (left_sql, _) = sb.sql_command();
+
+        let (right_sql, _) = (" returning \"returning_name\"", ());
+
+        assert_eq!(left_sql, right_sql);
+    }
+}

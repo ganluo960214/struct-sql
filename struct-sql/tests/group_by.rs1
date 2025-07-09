@@ -1,0 +1,29 @@
+#[cfg(test)]
+mod tests {
+    use struct_sql::group_by::TGroupBy;
+    use struct_sql::sql_builder::SqlBuilder;
+    use struct_sql_derive::StructSql;
+
+    #[derive(StructSql, Debug)]
+    #[struct_sql_table = "group_by_table"]
+    #[allow(dead_code)]
+    struct ColumnTable {
+        #[struct_sql_column(name = "group_by_name", is_indexed = true)]
+        #[allow(dead_code)]
+        group_by_name: i32,
+    }
+    const STRUCT_SQL_TABLE: ColumnTableStructSql = ColumnTableStructSql {};
+
+    #[test]
+    fn group_by() {
+        let mut sb = SqlBuilder::default();
+        let c = [STRUCT_SQL_TABLE.column_group_by_name()];
+        c.group_by(&mut sb);
+
+        let (left_sql, _) = sb.sql_command();
+
+        let right_sql = " group by group_by_table.\"group_by_name\"";
+
+        assert_eq!(left_sql, right_sql)
+    }
+}

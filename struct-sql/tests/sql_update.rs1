@@ -1,0 +1,56 @@
+mod common;
+
+#[cfg(test)]
+mod tests {
+    use crate::common::sql_args_to_bytes;
+    use bytes::BytesMut;
+    use postgres_types::ToSql;
+    use struct_sql::sql_builder::SqlArg;
+    use struct_sql::sql_update::Update;
+    use struct_sql::update_set::UpdateValue;
+    use struct_sql_derive::StructSql;
+
+    ///
+    /// ```sql
+    /// CREATE TABLE IF NOT EXISTS update_table
+    /// (
+    ///     id integer
+    /// )
+    /// ```
+    ///
+    #[derive(StructSql, Debug)]
+    #[struct_sql_table = "update_table"]
+    struct UpdateTable {
+        #[struct_sql_column(name = "id", is_indexed = true)]
+        id: i32,
+    }
+    const TABLE: UpdateTable = UpdateTable { id: 2 };
+    const STRUCT_SQL_TABLE: UpdateTableStructSql = UpdateTableStructSql {};
+
+    #[test]
+    fn sql_update() {
+        let update = &Update::<0> {
+            table: &STRUCT_SQL_TABLE,
+            r#where: None,
+            set: UpdateValue::from([(STRUCT_SQL_TABLE.column_id(), &TABLE.id as SqlArg)]),
+            returning: None,
+        };
+
+        let (left_sql, left_args) = update.sql_command();
+
+        // check sql
+        let (right_sql, right_args) = (
+            "update update_table set \"id\" = $1",
+            vec![&TABLE.id as &(dyn ToSql + Sync)],
+        );
+
+        assert_eq!(left_sql, right_sql);
+
+        let (mut left_bytes_mut, mut right_bytes_mut) = (BytesMut::default(), BytesMut::default());
+
+        sql_args_to_bytes(left_sql.as_str(), &left_args, &mut left_bytes_mut);
+        sql_args_to_bytes(right_sql, &right_args, &mut right_bytes_mut);
+
+        assert_eq!(left_bytes_mut, right_bytes_mut);
+    }
+}

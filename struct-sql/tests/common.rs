@@ -1,0 +1,56 @@
+use bytes::BytesMut;
+use postgres::{Client, NoTls, Statement};
+use struct_sql::sql_builder::{SqlArg, SqlArgs};
+
+fn prepare_sql(sql: &str) -> Statement {
+    let mut client = Client::connect(
+        "host=localhost password=9eaf2e1b52404c8d83bf77102656013d user=postgres",
+        NoTls,
+    )
+    .unwrap();
+    client.prepare(sql).unwrap()
+}
+
+pub fn sql_args_to_bytes(sql: &str, args: &SqlArgs, bytes_mut: &mut BytesMut) {
+    let statement = prepare_sql(sql);
+    let params = statement.params();
+
+    assert_eq!(params.len(), args.len());
+
+    for (i, arg) in args.iter().enumerate() {
+        arg.to_sql_checked(&params[i], bytes_mut).unwrap();
+    }
+}
+
+#[allow(dead_code)]
+pub fn writes_sql_args_to_bytes(
+    sql: &str,
+    left_args: SqlArgs,
+    right_args: SqlArgs,
+    left_bytes_mut: &mut BytesMut,
+    right_bytes_mut: &mut BytesMut,
+) {
+    sql_args_to_bytes(sql, &left_args, left_bytes_mut);
+    sql_args_to_bytes(sql, &right_args, right_bytes_mut);
+}
+
+#[allow(dead_code)]
+pub fn sql_args_arg_slice_to_bytes<const N: usize>(
+    sql: &str,
+    args_args: &Vec<[SqlArg; N]>,
+    bytes_mut: &mut BytesMut,
+) {
+    let statement = prepare_sql(sql);
+    let params = statement.params();
+
+    assert_eq!(
+        params.len(),
+        args_args.iter().map(|args| { args.len() }).sum()
+    );
+
+    for (i, args) in args_args.iter().enumerate() {
+        for (j, arg) in args.iter().enumerate() {
+            arg.to_sql_checked(&params[i + j], bytes_mut).unwrap();
+        }
+    }
+}

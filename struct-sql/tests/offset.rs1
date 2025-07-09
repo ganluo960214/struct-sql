@@ -1,0 +1,19 @@
+#[cfg(test)]
+mod tests {
+    use struct_sql::offset::{Offset, TOffset};
+    use struct_sql::sql_builder::SqlBuilder;
+
+    #[test]
+    fn offset() {
+        let mut sb = SqlBuilder::default();
+
+        let offset: Offset = 1;
+        offset.offset(&mut sb);
+
+        let (left_sql, _) = sb.sql_command();
+
+        let right_sql = " offset 1";
+
+        assert_eq!(left_sql, right_sql)
+    }
+}

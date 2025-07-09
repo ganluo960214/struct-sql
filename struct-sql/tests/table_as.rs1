@@ -1,0 +1,37 @@
+#[cfg(test)]
+mod tests {
+    use struct_sql::_table_as::TableAs;
+    use struct_sql::sql_builder::SqlBuilder;
+    use struct_sql::struct_sql_table::StructSqlTable;
+    use struct_sql_derive::StructSql;
+
+    #[derive(StructSql, Debug)]
+    #[struct_sql_table = "table_without_as"]
+    #[allow(dead_code)]
+    struct TableWithoutAs {}
+    const TABLE_WITHOUT_AS: TableWithoutAsStructSql = TableWithoutAsStructSql {};
+    const TABLE_WITH_AS: TableAs = TableAs {
+        table: &TABLE_WITHOUT_AS,
+        r#as: "table_with_as",
+    };
+
+    #[test]
+    fn struct_sql_table() {
+        let mut struct_sql_table_builder = SqlBuilder::default();
+
+        let right_str = "table_without_as as table_with_as";
+
+        TABLE_WITH_AS.struct_sql_table(&mut struct_sql_table_builder);
+        assert_eq!(struct_sql_table_builder.sql_command().0, right_str);
+    }
+
+    #[test]
+    fn struct_sql_column_prefix() {
+        let mut struct_sql_column_prefix_builder = SqlBuilder::default();
+
+        let right_str = " table_with_as";
+
+        TABLE_WITH_AS.struct_sql_table(&mut struct_sql_column_prefix_builder);
+        assert_eq!(struct_sql_column_prefix_builder.sql_command().0, right_str);
+    }
+}

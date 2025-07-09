@@ -1,0 +1,73 @@
+mod common;
+
+#[cfg(test)]
+mod tests {
+    use crate::common::sql_args_to_bytes;
+    use bytes::BytesMut;
+    use postgres_types::ToSql;
+    use struct_sql::condition::Condition::EQ;
+    use struct_sql::r#where::TWhere;
+    use struct_sql::sql_builder::{SqlArgs, SqlBuilder};
+    use struct_sql_derive::StructSql;
+
+    ///
+    /// ```sql
+    /// CREATE TABLE IF NOT EXISTS where_table
+    /// (
+    ///     where_column integer
+    /// )
+    /// ```
+    ///
+    #[derive(StructSql, Debug)]
+    #[struct_sql_table = "where_table"]
+    struct WhereTable {
+        #[struct_sql_column(name = "where_column", is_indexed = true)]
+        where_column: i32,
+    }
+    const TABLE: WhereTable = WhereTable { where_column: 0 };
+    const STRUCT_SQL_TABLE: WhereTableStructSql = WhereTableStructSql {};
+
+    #[test]
+    fn r#where() {
+        let mut sb = SqlBuilder::default();
+        let r#where = vec![EQ(
+            STRUCT_SQL_TABLE.column_where_column(),
+            &TABLE.where_column,
+        )];
+
+        r#where.r#where(&mut sb);
+
+        let (left_sql, left_args) = sb.sql_command();
+        let (right_sql, right_args) = (
+            " where where_table.\"where_column\" = $1",
+            vec![&TABLE.where_column as &(dyn ToSql + Sync)],
+        );
+
+        assert_eq!(left_sql, right_sql);
+
+        let (mut left_bytes_mut, mut right_bytes_mut) = (BytesMut::default(), BytesMut::default());
+
+        writes_sql_args_to_bytes(
+            right_sql,
+            left_args,
+            right_args,
+            &mut left_bytes_mut,
+            &mut right_bytes_mut,
+        );
+
+        assert_eq!(left_bytes_mut, right_bytes_mut);
+    }
+
+    fn writes_sql_args_to_bytes(
+        sql: &str,
+        left_args: SqlArgs,
+        right_args: SqlArgs,
+        mut left_bytes_mut: &mut BytesMut,
+        mut right_bytes_mut: &mut BytesMut,
+    ) {
+        let sql = format!("{}{}", "select * from where_table", sql);
+
+        sql_args_to_bytes(sql.as_str(), &left_args, &mut left_bytes_mut);
+        sql_args_to_bytes(sql.as_str(), &right_args, &mut right_bytes_mut);
+    }
+}
