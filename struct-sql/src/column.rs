@@ -15,7 +15,7 @@ pub trait TColumns {
 
 impl<COLUMN: Column> TColumns for ColumnVec<COLUMN> {
     fn columns(&self, builder: &mut SqlBuilder) {
-        self.into_iter().enumerate().for_each(|(index, column)| {
+        self.iter().enumerate().for_each(|(index, column)| {
             if index != 0 {
                 builder.write_sql(", ")
             }
@@ -27,7 +27,7 @@ impl<COLUMN: Column> TColumns for ColumnVec<COLUMN> {
 pub type ColumnSlice<COLUMN,const COLUMN_N:usize> = [COLUMN;COLUMN_N];
 impl<COLUMN:Column,const COLUMN_N: usize> TColumns for ColumnSlice<COLUMN,COLUMN_N> {
     fn columns(&self, builder: &mut SqlBuilder) {
-        self.into_iter().enumerate().for_each(|(index, column)| {
+        self.iter().enumerate().for_each(|(index, column)| {
             if index != 0 {
                 builder.write_sql(", ")
             }

@@ -118,8 +118,7 @@ pub fn condition_is<COLUMN: Column>(
 ) {
     debug_assert!(
         column.is_indexed(),
-        "{:#?} not indexed. try add index for this column.",
-        column
+        "{column:#?} not indexed. try add index for this column.",
     );
     column.column(sql_builder);
     sql_builder.write_sql(" ");
@@ -138,8 +137,7 @@ pub fn condition_between<'a, COLUMN: Column>(
 ) {
     debug_assert!(
         column.is_indexed(),
-        "{:#?} not indexed. try add index for this column.",
-        column
+        "{column:#?} not indexed. try add index for this column.",
     );
     column.column(sql_builder);
     sql_builder.write_sql(" ");
@@ -171,8 +169,7 @@ pub fn condition_operator<'a, COLUMN: Column>(
 ) {
     debug_assert!(
         column.is_indexed(),
-        "{:#?} not indexed. try add index for this column.",
-        column
+        "{column:#?} not indexed. try add index for this column.",
     );
     column.column(sql_builder);
     sql_builder.write_sql(" ");
@@ -194,8 +191,7 @@ pub fn condition_in<'a, COLUMN: Column>(
 ) {
     debug_assert!(
         column.is_indexed(),
-        "{:#?} not indexed. try add index for this column.",
-        column
+        "{column:#?} not indexed. try add index for this column.",
     );
     column.column(sql_builder);
     sql_builder.write_sql(" ");
@@ -219,8 +215,7 @@ pub fn condition_like<'a, COLUMN: Column>(
 ){
     debug_assert!(
         column.is_indexed(),
-        "{:#?} not indexed. try add index for this column.",
-        column
+        "{column:#?} not indexed. try add index for this column.",
     );
     column.column(sql_builder);
     sql_builder.write_sql(" ");

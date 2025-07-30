@@ -9,7 +9,7 @@ pub type Where<'a, COLUMN> = Vec<Condition<'a, COLUMN>>;
 
 impl<'a, COLUMN: Column> TWhere<'a> for Where<'a, COLUMN> {
     fn r#where(self, sql_builder: &mut SqlBuilder<'a>) {
-        if self.len()==0 { return }
+        if self.is_empty() { return }
 
         sql_builder.write_sql(" where");
 
