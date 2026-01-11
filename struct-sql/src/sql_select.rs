@@ -15,24 +15,19 @@ use crate::r#where::{TWhere, Where};
 /// https://www.postgresql.org/docs/current/sql-select.html
 ///
 #[derive(Clone)]
-pub struct Select<
-    'a,
-    TABLE: StructSqlTable,
-> {
-    pub columns: ColumnVec<TABLE::FIELD>,
-    pub from: TABLE,
-    pub r#where: Where<'a, TABLE::FIELD>,
+pub struct Select<'a, TABLE: StructSqlTable> {
+    pub columns:  ColumnVec<TABLE::FIELD>,
+    pub from:     TABLE,
+    pub r#where:  Where<'a, TABLE::FIELD>,
     pub group_by: Option<GroupBy<TABLE::FIELD>>,
-    pub having: Option<Having<'a, TABLE::FIELD>>,
-    pub order_by: Option<OrderBy<TABLE::FIELD>>,
-    pub limit: Option<Limit>,
-    pub offset: Option<Offset>,
-    pub r#for: Option<For>,
+    pub having:   Option<Having<'a, TABLE::FIELD>>,
+    pub order_by: Option<OrderBy<'a, TABLE::FIELD>>,
+    pub limit:    Option<Limit>,
+    pub offset:   Option<Offset>,
+    pub r#for:    Option<For>,
 }
 
-impl<'a, FROM: StructSqlTable, >
-    Select<'a, FROM, >
-{
+impl<'a, FROM: StructSqlTable> Select<'a, FROM> {
     pub fn sql_command(self) -> Sql<'a> {
         let mut b = SqlBuilder::default();
 
@@ -42,7 +37,7 @@ impl<'a, FROM: StructSqlTable, >
         self.from.struct_sql_table(&mut b);
 
         self.r#where.r#where(&mut b);
-        
+
         if let Some(v) = self.group_by {
             v.group_by(&mut b);
         }

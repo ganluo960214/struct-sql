@@ -9,23 +9,14 @@ use crate::struct_sql_table::StructSqlTable;
 /// postgres
 ///
 /// https://www.postgresql.org/docs/current/sql-insert.html
-pub struct Insert<
-    'a,
-    TABLE: StructSqlTable,
-    const INSERT_VALUE_N: usize,
-> {
-    pub table: TABLE,
+pub struct Insert<'a, TABLE: StructSqlTable, const INSERT_VALUE_N: usize> {
+    pub table:        TABLE,
     pub insert_value: InsertValue<'a, TABLE::FIELD, INSERT_VALUE_N>,
-    pub on_conflict: Option<OnConflict<'a, TABLE::FIELD>>,
-    pub returning: Option<Returning<TABLE::FIELD>>,
+    pub on_conflict:  Option<OnConflict<'a, TABLE::FIELD>>,
+    pub returning:    Option<Returning<TABLE::FIELD>>,
 }
 
-impl<
-    'a,
-    TABLE: StructSqlTable,
-    const INSERT_VALUE_N: usize,
-> Insert<'a, TABLE, INSERT_VALUE_N, >
-{
+impl<'a, TABLE: StructSqlTable, const INSERT_VALUE_N: usize> Insert<'a, TABLE, INSERT_VALUE_N> {
     pub fn sql_command(self) -> Sql<'a> {
         let mut b = SqlBuilder::default();
         b.write_sql("insert into ");
@@ -58,10 +49,14 @@ impl<'a, COLUMN: Column, const COLUMN_SIZE: usize> InsertValue<'a, COLUMN, COLUM
     pub fn insert_value(&self, builder: &mut SqlBuilder<'a>) {
         builder.write_sql(" (");
         self.0.columns(builder);
-        builder.write_sql(") values (");
-        for value in self.1.iter() {
-            builder.push_args_iter(value.iter())
+        builder.write_sql(") values ");
+        for (i, value) in self.1.iter().enumerate() {
+            if i != 0 {
+                builder.write_sql(", ");
+            }
+            builder.write_sql("(");
+            builder.push_args_iter(value.iter());
+            builder.write_sql(")");
         }
-        builder.write_sql(")");
     }
 }

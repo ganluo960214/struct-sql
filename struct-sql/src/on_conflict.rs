@@ -9,7 +9,7 @@ pub struct OnConflict<'a, COLUMN: Column> {
 }
 
 impl<'a, COLUMN: Column> OnConflict<'a, COLUMN> {
-    pub fn on_conflict(&'a self, builder: &mut sql_builder::SqlBuilder<'a>) {
+    pub fn on_conflict(&self, builder: &mut sql_builder::SqlBuilder<'a>) {
         builder.write_sql(" on conflict");
         if let Some(on_conflict_target) = &self.on_conflict_target {
             on_conflict_target.on_conflict_target(builder);
@@ -25,7 +25,7 @@ pub enum OnConflictTarget<'a, COLUMN: Column> {
 }
 // OnConflictTarget::PrimaryKeyOrUniqueColumnsWhere(columns, where)
 impl<'a, COLUMN: Column> OnConflictTarget<'a, COLUMN> {
-    pub fn on_conflict_target(&'a self, builder: &mut sql_builder::SqlBuilder<'a>) {
+    pub fn on_conflict_target(&self, builder: &mut sql_builder::SqlBuilder<'a>) {
         match self {
             OnConflictTarget::PrimaryKeyOrUniqueColumns(columns) => {
                 builder.write_sql(" (");
