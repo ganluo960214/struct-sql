@@ -24,7 +24,7 @@ pub mod offset;
 pub mod r#for;
 pub mod on_conflict;
 pub mod r#where;
-
+pub mod composite;
 // pub mod join;
 
 pub use struct_sql_derive::StructSql;
