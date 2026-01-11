@@ -6,6 +6,7 @@ use proc_macro::TokenStream;
     StructSql,
     attributes(
         struct_sql_table,
+        struct_sql_composite,
         struct_sql_virtual_view,
         struct_sql_virtual_view_main_table,
         struct_sql_virtual_view_join,
