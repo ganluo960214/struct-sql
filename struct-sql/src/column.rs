@@ -7,6 +7,17 @@ pub trait Column: Debug + Eq + PartialEq + Hash {
     fn is_indexed(&self) -> bool;
 }
 
+// #[derive(Debug,Eq,PartialEq,Hash)]
+// pub struct DummyColumn;
+// impl Column for DummyColumn {
+//     fn column(&self, _builder: &mut SqlBuilder) {
+//     }
+
+//     fn is_indexed(&self) -> bool {
+//         false
+//     }
+// }
+
 pub type ColumnVec<Column> = Vec<Column>;
 
 pub trait TColumns {
@@ -24,8 +35,8 @@ impl<COLUMN: Column> TColumns for ColumnVec<COLUMN> {
     }
 }
 
-pub type ColumnSlice<COLUMN,const COLUMN_N:usize> = [COLUMN;COLUMN_N];
-impl<COLUMN:Column,const COLUMN_N: usize> TColumns for ColumnSlice<COLUMN,COLUMN_N> {
+pub type ColumnSlice<COLUMN, const COLUMN_N: usize> = [COLUMN; COLUMN_N];
+impl<COLUMN: Column, const COLUMN_N: usize> TColumns for ColumnSlice<COLUMN, COLUMN_N> {
     fn columns(&self, builder: &mut SqlBuilder) {
         self.iter().enumerate().for_each(|(index, column)| {
             if index != 0 {
@@ -33,6 +44,5 @@ impl<COLUMN:Column,const COLUMN_N: usize> TColumns for ColumnSlice<COLUMN,COLUMN
             }
             column.column(builder);
         });
-
     }
 }
