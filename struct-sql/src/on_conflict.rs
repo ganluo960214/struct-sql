@@ -1,5 +1,6 @@
 use crate::column::{Column, ColumnVec, TColumns};
-use crate::sql_builder::{SqlArg, SqlBuilder};
+use crate::sql_builder::{self, SqlArg, SqlBuilder};
+use crate::r#where::{TWhere, Where};
 use std::collections::HashMap;
 
 pub struct OnConflict<'a, COLUMN: Column> {
@@ -8,7 +9,7 @@ pub struct OnConflict<'a, COLUMN: Column> {
 }
 
 impl<'a, COLUMN: Column> OnConflict<'a, COLUMN> {
-    pub fn on_conflict(&self, builder: &mut SqlBuilder<'a>) {
+    pub fn on_conflict(&'a self, builder: &mut sql_builder::SqlBuilder<'a>) {
         builder.write_sql(" on conflict");
         if let Some(on_conflict_target) = &self.on_conflict_target {
             on_conflict_target.on_conflict_target(builder);
@@ -19,20 +20,26 @@ impl<'a, COLUMN: Column> OnConflict<'a, COLUMN> {
 
 pub enum OnConflictTarget<'a, COLUMN: Column> {
     PrimaryKeyOrUniqueColumns(ColumnVec<COLUMN>),
+    PrimaryKeyOrUniqueColumnsWhere(ColumnVec<COLUMN>, Where<'a, COLUMN>),
     PrimaryKeyOrUniqueConstraintName(&'a str),
 }
-
-impl<COLUMN: Column> OnConflictTarget<'_, COLUMN> {
-    pub fn on_conflict_target(&self, builder: &mut SqlBuilder) {
+// OnConflictTarget::PrimaryKeyOrUniqueColumnsWhere(columns, where)
+impl<'a, COLUMN: Column> OnConflictTarget<'a, COLUMN> {
+    pub fn on_conflict_target(&'a self, builder: &mut sql_builder::SqlBuilder<'a>) {
         match self {
             OnConflictTarget::PrimaryKeyOrUniqueColumns(columns) => {
                 builder.write_sql(" (");
                 columns.columns(builder);
                 builder.write_sql(")");
             }
+            OnConflictTarget::PrimaryKeyOrUniqueColumnsWhere(columns, r#where) => {
+                builder.write_sql(" (");
+                columns.columns(builder);
+                builder.write_sql(")");
+                r#where.r#where(builder);
+            }
             OnConflictTarget::PrimaryKeyOrUniqueConstraintName(constraint_name) => {
-                builder.write_sql(" on constraint ");
-                builder.write_sql(constraint_name);
+                builder.write_sql(format!(" on constraint {}", constraint_name).as_str());
             }
         }
     }
@@ -78,13 +85,15 @@ impl<'a, COLUMN: Column> TOnConflictAction<'a> for DoUpdateValue<'a, COLUMN> {
     fn on_conflict_action(&self, sql_builder: &mut SqlBuilder<'a>) {
         sql_builder.write_sql(" do update set ");
 
-        self.iter().enumerate().for_each(|(index, (column, value))| {
-            if index != 0 {
-                sql_builder.write_sql(", ");
-            }
-            column.column(sql_builder);
-            sql_builder.write_sql(" = ");
-            value.do_update_values(sql_builder);
-        })
+        self.iter()
+            .enumerate()
+            .for_each(|(index, (column, value))| {
+                if index != 0 {
+                    sql_builder.write_sql(", ");
+                }
+                column.column(sql_builder);
+                sql_builder.write_sql(" = ");
+                value.do_update_values(sql_builder);
+            })
     }
 }
