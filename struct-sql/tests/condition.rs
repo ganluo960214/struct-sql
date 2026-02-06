@@ -7,8 +7,8 @@ mod tests {
 
     use crate::common;
     use struct_sql::condition::Condition::{
-        Between, BetweenSymmetric, IsFalse, IsNotFalse, IsNotNull, IsNotTrue, IsNotUnknown, IsNull, IsTrue, IsUnknown,
-        NotBetween, NotBetweenSymmetric, EQ, GT, GTE, IN, LT, LTE, NEQ,
+        Between, BetweenSymmetric, EQ, GT, GTE, IN, IsFalse, IsNotFalse, IsNotNull, IsNotTrue,
+        IsNotUnknown, IsNull, IsTrue, IsUnknown, LT, LTE, NEQ, NotBetween, NotBetweenSymmetric,
     };
     use struct_sql::sql_builder::{SqlArgs, SqlBuilder};
     use struct_sql_derive::StructSql;
@@ -24,7 +24,7 @@ mod tests {
     #[derive(StructSql, Debug, Default)]
     #[struct_sql_table = "condition_table"]
     struct ColumnTable {
-        #[struct_sql_column(name = "condition_name", is_indexed = true)]
+        #[struct_sql_column(name = "condition_name", indexed)]
         condition_name: i32,
     }
     const TABLE: ColumnTable = ColumnTable { condition_name: 0 };
@@ -433,19 +433,16 @@ mod tests {
     #[test]
     fn condition_in() {
         let mut sb = SqlBuilder::default();
-        let sql_args:SqlArgs = vec![&TABLE.condition_name, &TABLE.condition_name];
-        
-        let c = IN(
-            ColumnTableField::condition_name,
-            sql_args.clone(),
-        );
+        let sql_args: SqlArgs = vec![&TABLE.condition_name, &TABLE.condition_name];
+
+        let c = IN(ColumnTableField::condition_name, sql_args.clone());
         c.condition(&mut sb);
 
         let (left_sql, left_args) = sb.sql_command();
 
         let (right_sql, right_args) = (
             " condition_name in ($1, $2)",
-            vec![&0 as &(dyn ToSql + Sync),&0] as SqlArgs,
+            vec![&0 as &(dyn ToSql + Sync), &0] as SqlArgs,
         );
 
         assert_eq!(left_sql, right_sql);

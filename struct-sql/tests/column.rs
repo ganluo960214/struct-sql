@@ -10,7 +10,7 @@ mod tests {
     #[allow(dead_code)]
     struct ColumnsTable {
         #[allow(dead_code)]
-        #[struct_sql_column(name = "column_name1", is_indexed = true)]
+        #[struct_sql_column(name = "column_name1", indexed)]
         column_name: i32,
         #[allow(dead_code)]
         column_name2: i32,

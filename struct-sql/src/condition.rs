@@ -60,6 +60,7 @@ pub enum Condition<'a, COLUMN: Column> {
     /// postgis
     ///
     STDWithin(COLUMN, SqlArg<'a>, SqlArg<'a>, SqlArg<'a>),
+    DistanceGTE(COLUMN, SqlArg<'a>, SqlArg<'a>, SqlArg<'a>, SqlArg<'a>),
 }
 
 impl<'a, COLUMN: Column> Condition<'a, COLUMN> {
@@ -79,7 +80,6 @@ impl<'a, COLUMN: Column> Condition<'a, COLUMN> {
                 condition_between(column, "not between symmetric", *begin, *end, sql_builder)
             }
             Condition::IsTrue(column) => condition_is(column, "is true", sql_builder),
-
             Condition::IsNotTrue(column) => condition_is(column, "is not true", sql_builder),
             Condition::IsFalse(column) => condition_is(column, "is false", sql_builder),
             Condition::IsNotFalse(column) => condition_is(column, "is not false", sql_builder),
@@ -87,36 +87,28 @@ impl<'a, COLUMN: Column> Condition<'a, COLUMN> {
             Condition::IsNotUnknown(column) => condition_is(column, "is not unknown", sql_builder),
             Condition::IsNull(column) => condition_is(column, "is null", sql_builder),
             Condition::IsNotNull(column) => condition_is(column, "is not null", sql_builder),
-            //
             Condition::AND => sql_builder.write_sql("and"),
             Condition::OR => sql_builder.write_sql("or"),
-            //
             Condition::EQ(column, value) => condition_operator(column, "=", *value, sql_builder),
             Condition::NEQ(column, value) => condition_operator(column, "!=", *value, sql_builder),
             Condition::GT(column, value) => condition_operator(column, ">", *value, sql_builder),
             Condition::LT(column, value) => condition_operator(column, "<", *value, sql_builder),
             Condition::GTE(column, value) => condition_operator(column, ">=", *value, sql_builder),
             Condition::LTE(column, value) => condition_operator(column, "<=", *value, sql_builder),
-
-            //
             Condition::IN(column, value) => condition_in(column, "in", value, sql_builder),
             Condition::NIN(column, value) => condition_in(column, "not in", value, sql_builder),
-
-            //
             Condition::LIKE(column, value) => condition_like(column, "like", *value, sql_builder),
             Condition::ILIKE(column, value) => condition_like(column, "ilike", *value, sql_builder),
-
-            //
             Condition::ArrayOverlap(column, value) => {
                 condition_array(column, "&&", *value, sql_builder)
             }
-
-            //
             Condition::Conditions(v) => conditions(v, sql_builder),
-
             Condition::Raw(v) => sql_builder.write_sql(v),
             Condition::STDWithin(v, lon, lat, radius) => {
                 st_d_within(v, *lon, *lat, *radius, sql_builder)
+            }
+            Condition::DistanceGTE(column, lon1, lat1, lon2, lat2) => {
+                distance_gte(column, *lon1, *lat1, *lon2, *lat2, sql_builder)
             }
         }
     }
@@ -281,4 +273,30 @@ pub fn st_d_within<'a, COLUMN: Column>(
     sql_builder.write_sql(")::geography, ");
     sql_builder.push_arg(radius);
     sql_builder.write_sql(")");
+}
+
+fn distance_gte<'a, COLUMN: Column>(
+    column: &COLUMN,
+    lon1: SqlArg<'a>,
+    lat1: SqlArg<'a>,
+    lon2: SqlArg<'a>,
+    lat2: SqlArg<'a>,
+    sql_builder: &mut SqlBuilder<'a>,
+) {
+    column.column(sql_builder);
+    sql_builder.write_sql("<-> ST_MakePoint(");
+    sql_builder.push_arg(lon1);
+    sql_builder.write_sql(", ");
+    sql_builder.push_arg(lat1);
+    sql_builder.write_sql(") >=");
+    sql_builder.write_sql("(ST_MAKEPOINT(");
+    sql_builder.push_arg(lon1);
+    sql_builder.write_sql(", ");
+    sql_builder.push_arg(lat1);
+    sql_builder.write_sql(")::geography <->");
+    sql_builder.write_sql("ST_MAKEPOINT(");
+    sql_builder.push_arg(lon2);
+    sql_builder.write_sql(", ");
+    sql_builder.push_arg(lat2);
+    sql_builder.write_sql(")::geography)")
 }
