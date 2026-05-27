@@ -7,7 +7,7 @@ use crate::offset::{Offset, TOffset};
 use crate::order_by::{OrderBy, TOrderBy};
 use crate::sql_builder::{Sql, SqlBuilder};
 use crate::struct_sql_table::StructSqlTable;
-use crate::r#where::{TWhere, Where};
+use crate::r#where::TWhere;
 
 ///
 /// postgres
@@ -15,10 +15,10 @@ use crate::r#where::{TWhere, Where};
 /// https://www.postgresql.org/docs/current/sql-select.html
 ///
 #[derive(Clone)]
-pub struct Select<'a, TABLE: StructSqlTable> {
+pub struct Select<'a, TABLE: StructSqlTable, TW: TWhere<'a>> {
     pub columns:  ColumnVec<TABLE::FIELD>,
     pub from:     TABLE,
-    pub r#where:  Where<'a, TABLE::FIELD>,
+    pub r#where:  TW,
     pub group_by: Option<GroupBy<TABLE::FIELD>>,
     pub having:   Option<Having<'a, TABLE::FIELD>>,
     pub order_by: Option<OrderBy<'a, TABLE::FIELD>>,
@@ -27,7 +27,7 @@ pub struct Select<'a, TABLE: StructSqlTable> {
     pub r#for:    Option<For>,
 }
 
-impl<'a, FROM: StructSqlTable> Select<'a, FROM> {
+impl<'a, FROM: StructSqlTable, TW: TWhere<'a>> Select<'a, FROM, TW> {
     pub fn sql_command(self) -> Sql<'a> {
         let mut b = SqlBuilder::default();
 

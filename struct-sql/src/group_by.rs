@@ -5,9 +5,9 @@ pub trait TGroupBy {
     fn group_by(&self, builder: &mut SqlBuilder);
 }
 
-pub type GroupBy<COLUMN, > = ColumnVec<COLUMN,>;
+pub type GroupBy<COLUMN> = ColumnVec<COLUMN>;
 
-impl<COLUMN: Column,> TGroupBy for GroupBy<COLUMN, > {
+impl<COLUMN: Column> TGroupBy for GroupBy<COLUMN> {
     fn group_by(&self, builder: &mut SqlBuilder) {
         builder.write_sql(" group by ");
         self.columns(builder);

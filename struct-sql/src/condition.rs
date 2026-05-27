@@ -63,8 +63,12 @@ pub enum Condition<'a, COLUMN: Column> {
     DistanceGTE(COLUMN, SqlArg<'a>, SqlArg<'a>, SqlArg<'a>, SqlArg<'a>),
 }
 
-impl<'a, COLUMN: Column> Condition<'a, COLUMN> {
-    pub fn condition(&self, sql_builder: &mut SqlBuilder<'a>) {
+pub trait TCondition<'a> {
+    fn condition(&self, sql_builder: &mut SqlBuilder<'a>);
+}
+
+impl<'a, COLUMN: Column> TCondition<'a> for Condition<'a, COLUMN> {
+    fn condition(&self, sql_builder: &mut SqlBuilder<'a>) {
         sql_builder.write_sql(" ");
         match self {
             Condition::Between(column, begin, end) => {

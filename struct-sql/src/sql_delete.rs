@@ -1,30 +1,27 @@
-use crate::r#where::{TWhere, Where};
 use crate::returning::{Returning, TReturning};
 use crate::sql_builder::{Sql, SqlBuilder};
 use crate::struct_sql_table::StructSqlTable;
+use crate::r#where::TWhere;
+use std::marker::PhantomData;
 
 /// postgres
 ///
 /// https://www.postgresql.org/docs/current/sql-delete.html
-pub struct Delete<
-    'a,
-    TABLE: StructSqlTable,
-> {
-    pub table: TABLE,
-    pub r#where: Option<Where<'a, TABLE::FIELD>>,
-    pub returning: Option<Returning<TABLE::FIELD, >>,
+pub struct Delete<'a, TABLE: StructSqlTable, TW: TWhere<'a>> {
+    pub table:     TABLE,
+    pub r#where:   TW,
+    pub returning: Option<Returning<TABLE::FIELD>>,
+    pub _marker:   PhantomData<&'a ()>, // 占位符
 }
 
-impl<'a, TABLE: StructSqlTable,> Delete<'a, TABLE> {
+impl<'a, TABLE: StructSqlTable, TW: TWhere<'a>> Delete<'a, TABLE, TW> {
     pub fn sql_command(self) -> Sql<'a> {
         let mut b = SqlBuilder::default();
         b.write_sql("delete from ");
 
         self.table.struct_sql_table(&mut b);
 
-        if let Some(v) = self.r#where {
-            v.r#where(&mut b)
-        }
+        self.r#where.r#where(&mut b);
 
         if let Some(v) = self.returning {
             v.returning(&mut b)

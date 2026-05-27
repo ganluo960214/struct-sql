@@ -61,6 +61,12 @@ impl A for Composite {
             Span::call_site(),
         )
     }
+    fn enum_all_fields_ident(&self) -> Ident {
+        Ident::new(
+            format!("{}AllFields", self.derive_struct_name).as_str(),
+            Span::call_site(),
+        )
+    }
 }
 impl Composite {
     fn to_token_stream(&self) -> Result<TokenStream, Error> {
@@ -99,11 +105,23 @@ impl A for Table {
             Span::call_site(),
         )
     }
+    fn enum_all_fields_ident(&self) -> Ident {
+        Ident::new(
+            format!("{}AllFields", self.derive_struct_name).as_str(),
+            Span::call_site(),
+        )
+    }
 }
 impl Table {
     fn empty_select_ident(&self) -> Ident {
         Ident::new(
             format!("{}EmptySelect", self.derive_struct_name).as_str(),
+            Span::call_site(),
+        )
+    }
+    fn empty_selectv2_ident(&self) -> Ident {
+        Ident::new(
+            format!("{}EmptySelectV2", self.derive_struct_name).as_str(),
             Span::call_site(),
         )
     }
@@ -188,6 +206,8 @@ trait A {
     fn enum_field_ident(&self) -> Ident;
     // enum Fields
     fn enum_fields_without_sensitive_ident(&self) -> Ident;
+    // enum Fields
+    fn enum_all_fields_ident(&self) -> Ident;
 }
 
 #[derive(Debug, Default)]
@@ -216,12 +236,16 @@ impl DeriveStructFieldAttrColumn {
         )
     }
 
-    fn enum_item_composite_ident(&self) -> Option<(Ident, Ident, Type)> {
+    fn enum_item_composite_ident(&self) -> Option<(Ident, Ident, Ident, Type)> {
         self.composite_type.as_ref().map(|v| {
             (
                 self.enum_item_ident(),
                 Ident::new(
                     format!("{}_composite", self.derive_struct_field_name.clone()).as_str(),
+                    Span::call_site(),
+                ),
+                Ident::new(
+                    format!("set_{}_composite", self.derive_struct_field_name.clone()).as_str(),
                     Span::call_site(),
                 ),
                 syn::parse_str(v)
@@ -513,6 +537,7 @@ fn generate_enum_field<Table: A>(
 ) -> TokenStream {
     let enum_field_ident: Ident = r#struct.enum_field_ident();
     let enum_fields_without_sensitive_ident: Ident = r#struct.enum_fields_without_sensitive_ident();
+    let enum_all_fields_ident: Ident = r#struct.enum_all_fields_ident();
 
     let count1 = Ident::new("count1", Span::call_site());
     let count8 = Ident::new("count8", Span::call_site());
@@ -530,7 +555,17 @@ fn generate_enum_field<Table: A>(
                 .filter_map(|column| column.enum_item_composite_ident())
                 .map(|composite_type| {
                     let ident = composite_type.1;
-                    let r#type = composite_type.2;
+                    let r#type = composite_type.3;
+                    quote!(#ident(#r#type),)
+                }),
+        )
+        .chain(
+            columns
+                .iter()
+                .filter_map(|column| column.enum_item_composite_ident())
+                .map(|composite_type| {
+                    let ident = composite_type.2;
+                    let r#type = composite_type.3;
                     quote!(#ident(#r#type),)
                 }),
         )
@@ -561,6 +596,21 @@ fn generate_enum_field<Table: A>(
             let ident1 = composite_type.0;
             let ident2 = composite_type.1;
             quote!(#enum_field_ident::#ident2(v) => {
+                builder.write_sql("(");
+                #enum_field_ident::#ident1.as_str(builder);
+                builder.write_sql(").");
+                v.as_str(builder)
+            },)
+        })
+        .collect();
+
+    let match_enum_set_items_composite_as_str_idents: Vec<TokenStream> = columns
+        .iter()
+        .filter_map(|column| column.enum_item_composite_ident())
+        .map(|composite_type| {
+            let ident1 = composite_type.0;
+            let ident2 = composite_type.2;
+            quote!(#enum_field_ident::#ident2(v) => {
                 #enum_field_ident::#ident1.as_str(builder);
                 builder.write_sql(".");
                 v.as_str(builder)
@@ -580,6 +630,14 @@ fn generate_enum_field<Table: A>(
         })
         .collect();
 
+    let match_enum_items_idents: Vec<TokenStream> = columns
+        .iter()
+        .map(|column| {
+            let name = &column.enum_item_ident();
+            quote!(#enum_field_ident::#name,)
+        })
+        .collect();
+    let match_enum_items_idents_count = columns.len();
     let match_enum_not_sensitive_items_idents: Vec<TokenStream> = columns
         .iter()
         .filter(|v| !v.is_sensitive)
@@ -589,12 +647,17 @@ fn generate_enum_field<Table: A>(
         })
         .collect();
 
-    let match_enum_indexed_items_idents: Vec<TokenStream> = columns
+    let match_enum_indexed_items_idents: Vec<Vec<TokenStream>> = columns
         .iter()
         .map(|column| {
             let name = &column.enum_item_ident();
             let is_indexed = column.is_indexed || column.is_primary_key_key || column.is_unique_key;
-            quote!(#enum_field_ident::#name => #is_indexed,)
+            let mut vec = vec![quote!(#enum_field_ident::#name => #is_indexed,)];
+            if let Some(v) = column.enum_item_composite_ident() {
+                let ident1 = v.1;
+                vec.push(quote!(#enum_field_ident::#ident1(_) => #is_indexed,));
+            }
+            vec
         })
         .collect();
 
@@ -603,6 +666,10 @@ fn generate_enum_field<Table: A>(
         pub enum #enum_field_ident {
             #(#enum_items_idents)*
         }
+
+        pub static #enum_all_fields_ident:[#enum_field_ident;#match_enum_items_idents_count] = [
+             #(#match_enum_items_idents)*
+        ];
 
         pub static #enum_fields_without_sensitive_ident:std::sync::LazyLock<Vec<#enum_field_ident>> = std::sync::LazyLock::new(||vec![
              #(#match_enum_not_sensitive_items_idents)*
@@ -613,6 +680,7 @@ fn generate_enum_field<Table: A>(
                 match self {
                     #(#match_enum_items_as_str_idents)*
                     #(#match_enum_items_composite_as_str_idents)*
+                    #(#match_enum_set_items_composite_as_str_idents)*
                 }
             }
             pub fn from_str(str:&str) -> Option<Self> {
@@ -630,7 +698,7 @@ fn generate_enum_field<Table: A>(
 
             fn is_indexed(&self) -> bool {
                 match self {
-                    #(#match_enum_indexed_items_idents)*
+                    #(#(#match_enum_indexed_items_idents)*)*
                     _ => false
                 }
             }
@@ -684,9 +752,7 @@ fn generate_composite_enum_field<Table: A>(
             }
 
             fn is_indexed(&self) -> bool {
-                match self {
-                    _ => false
-                }
+                false
             }
         }
     )
@@ -697,6 +763,7 @@ fn generate_empty_select_update_delete_insert(
     columns: &[DeriveStructFieldAttrColumn],
 ) -> TokenStream {
     let empty_select_ident = r#struct.empty_select_ident();
+    let empty_selectv2_ident = r#struct.empty_selectv2_ident();
     let empty_update_ident = r#struct.empty_update_ident();
     let empty_insert_ident = r#struct.empty_insert_ident();
     let empty_delete_ident = r#struct.empty_delete_ident();
@@ -705,7 +772,18 @@ fn generate_empty_select_update_delete_insert(
     let first_column = columns[0].enum_item_ident();
 
     quote!(
-        pub const #empty_select_ident: struct_sql::sql_select::Select<#enum_field_ident> = struct_sql::sql_select::Select {
+        pub const #empty_select_ident: struct_sql::sql_select::Select<#enum_field_ident, struct_sql::r#where::Where<#enum_field_ident>> = struct_sql::sql_select::Select {
+            columns: vec![],
+            from: #enum_field_ident::#first_column,
+            r#where: vec![],
+            group_by: None,
+            having: None,
+            order_by: None,
+            limit: None,
+            offset: None,
+            r#for: None,
+        };
+        pub const #empty_selectv2_ident: struct_sql::sql_select::Select<#enum_field_ident, struct_sql::r#where::WhereV2<#enum_field_ident>> = struct_sql::sql_select::Select {
             columns: vec![],
             from: #enum_field_ident::#first_column,
             r#where: vec![],
@@ -717,27 +795,28 @@ fn generate_empty_select_update_delete_insert(
             r#for: None,
         };
 
-        pub const #empty_update_ident: std::sync::LazyLock<struct_sql::sql_update::Update<#enum_field_ident>> =
-            std::sync::LazyLock::new(|| struct_sql::sql_update::Update {
-                table:     #enum_field_ident::#first_column,
-                r#where:   None,
-                set:       std::collections::HashMap::new(),
-                returning: None,
-            });
+        // pub const #empty_update_ident: std::sync::LazyLock<struct_sql::sql_update::Update<#enum_field_ident>> =
+        //     std::sync::LazyLock::new(|| struct_sql::sql_update::Update {
+        //         table:     #enum_field_ident::#first_column,
+        //         r#where:   None,
+        //         set:       std::collections::HashMap::new(),
+        //         returning: None,
+        //     });
 
-        pub const #empty_insert_ident: std::sync::LazyLock<struct_sql::sql_insert::Insert<#enum_field_ident, 0>> =
-            std::sync::LazyLock::new(|| struct_sql::sql_insert::Insert {
-                table:        #enum_field_ident::#first_column,
-                insert_value: struct_sql::sql_insert::InsertValue([], vec![[]]),
-                on_conflict:  None,
-                returning:    None,
-            });
+        // pub const #empty_insert_ident: std::sync::LazyLock<struct_sql::sql_insert::Insert<#enum_field_ident, 0>> =
+        //     std::sync::LazyLock::new(|| struct_sql::sql_insert::Insert {
+        //         table:        #enum_field_ident::#first_column,
+        //         insert_value: struct_sql::sql_insert::InsertValue([], vec![[]]),
+        //         on_conflict:  None,
+        //         returning:    None,
+        //     });
 
-        pub const #empty_delete_ident: struct_sql::sql_delete::Delete<#enum_field_ident> =
-            struct_sql::sql_delete::Delete {
-                table:     #enum_field_ident::#first_column,
-                r#where:   None,
-                returning: None,
-            };
+        // pub const #empty_delete_ident: struct_sql::sql_delete::Delete<#enum_field_ident,struct_sql::r#where::Where<#enum_field_ident>> =
+        //     struct_sql::sql_delete::Delete {
+        //         table:     #enum_field_ident::#first_column,
+        //         r#where:   vec![],
+        //         returning: None,
+        //         _marker:   std::marker::PhantomData,
+        //     };
     )
 }

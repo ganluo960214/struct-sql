@@ -20,11 +20,11 @@ pub trait Column: Debug + Eq + PartialEq + Hash {
 
 pub type ColumnVec<Column> = Vec<Column>;
 
-pub trait TColumns {
-    fn columns(&self, builder: &mut SqlBuilder);
+pub trait TColumns<'a> {
+    fn columns(&self, builder: &mut SqlBuilder<'a>);
 }
 
-impl<COLUMN: Column> TColumns for ColumnVec<COLUMN> {
+impl<'a, COLUMN: Column> TColumns<'a> for ColumnVec<COLUMN> {
     fn columns(&self, builder: &mut SqlBuilder) {
         self.iter().enumerate().for_each(|(index, column)| {
             if index != 0 {
@@ -36,7 +36,7 @@ impl<COLUMN: Column> TColumns for ColumnVec<COLUMN> {
 }
 
 pub type ColumnSlice<COLUMN, const COLUMN_N: usize> = [COLUMN; COLUMN_N];
-impl<COLUMN: Column, const COLUMN_N: usize> TColumns for ColumnSlice<COLUMN, COLUMN_N> {
+impl<'a, COLUMN: Column, const COLUMN_N: usize> TColumns<'a> for ColumnSlice<COLUMN, COLUMN_N> {
     fn columns(&self, builder: &mut SqlBuilder) {
         self.iter().enumerate().for_each(|(index, column)| {
             if index != 0 {

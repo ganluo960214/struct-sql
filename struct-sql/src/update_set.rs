@@ -2,23 +2,50 @@ use crate::column::Column;
 use crate::sql_builder::{SqlArg, SqlBuilder};
 use std::collections::HashMap;
 
-pub trait TUpdateValue<'a> {
-    fn update_value(&self, sql_builder: &mut SqlBuilder<'a>);
+pub trait TUpdateSet<'a> {
+    fn update_set(&self, sql_builder: &mut SqlBuilder<'a>);
 }
 
-pub type UpdateSet<'a,COLUMN> = HashMap<COLUMN, SqlArg<'a>>;
+#[derive(Debug, Clone, Copy)]
+pub enum UpdateValue<'a> {
+    Value(SqlArg<'a>),
+    Increment(SqlArg<'a>),
+    Decrement(SqlArg<'a>),
+}
 
-impl<'a,COLUMN:Column> TUpdateValue<'a> for UpdateSet<'a,COLUMN> {
-    fn update_value(&self, builder: &mut SqlBuilder<'a>) {
+impl<'a> From<SqlArg<'a>> for UpdateValue<'a> {
+    fn from(arg: SqlArg<'a>) -> Self {
+        UpdateValue::Value(arg)
+    }
+}
+
+pub type UpdateSet<'a, COLUMN> = HashMap<COLUMN, UpdateValue<'a>>;
+
+impl<'a, COLUMN: Column> TUpdateSet<'a> for UpdateSet<'a, COLUMN> {
+    fn update_set(&self, builder: &mut SqlBuilder<'a>) {
+        if self.is_empty() {
+            return;
+        }
         builder.write_sql(" set ");
-        // for (i, (column, value)) in 
-        self.iter().enumerate().for_each(|(i, (column, value))|{
+        self.iter().enumerate().for_each(|(i, (column, value))| {
             if i != 0 {
                 builder.write_sql(", ");
             }
             column.column(builder);
-            builder.write_sql(" = ");
-            builder.push_arg(*value);
-        }) 
+            match value {
+                UpdateValue::Value(arg) => {
+                    builder.write_sql(" = ");
+                    builder.push_arg(*arg);
+                }
+                UpdateValue::Increment(arg) => {
+                    builder.write_sql(" += ");
+                    builder.push_arg(*arg);
+                }
+                UpdateValue::Decrement(arg) => {
+                    builder.write_sql(" -= ");
+                    builder.push_arg(*arg);
+                }
+            }
+        })
     }
 }

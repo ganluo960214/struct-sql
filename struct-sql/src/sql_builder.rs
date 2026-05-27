@@ -3,7 +3,7 @@ use std::slice::Iter;
 
 #[derive(Debug, Default)]
 pub struct SqlBuilder<'a> {
-    sql: String,
+    sql:  String,
     args: SqlArgs<'a>,
 }
 

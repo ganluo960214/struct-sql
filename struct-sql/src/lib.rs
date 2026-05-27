@@ -8,6 +8,8 @@ pub mod sql_update;
 pub mod column;
 
 pub mod condition;
+pub mod condition_v2;
+pub mod function;
 
 pub mod _table_as;
 pub mod struct_sql_table;
@@ -21,10 +23,11 @@ pub mod update_set;
 pub mod limit;
 pub mod offset;
 
+pub mod composite;
 pub mod r#for;
 pub mod on_conflict;
 pub mod r#where;
-pub mod composite;
+
 // pub mod join;
 
 pub use struct_sql_derive::StructSql;
