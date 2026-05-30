@@ -6,13 +6,18 @@ edition = { workspace = true }
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-struct-sql-derive = { version = "0.1.0", path = "../struct-sql-macros" }
-postgres-types = "0.2"
+struct-sql-derive = { workspace = true }
+postgres-types = { workspace = true }
+tokio-postgres = { workspace = true }
+log = { workspace = true }
+
 
 [dev-dependencies]
-tokio-postgres = { version = "0.7" }
-postgres = "0.19"
-bytes = "1"
 proc-macro2 = { workspace = true }
 quote = { workspace = true }
-syn = { workspace = true, features = ["parsing", "printing", "full", "extra-traits"] }
+syn = { workspace = true, features = [
+    "parsing",
+    "printing",
+    "full",
+    "extra-traits",
+] }

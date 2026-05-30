@@ -1,4 +1,5 @@
 use crate::column::{ColumnVec, TColumns};
+use crate::deadlock::TLockPlanSql;
 use crate::r#for::For;
 use crate::group_by::{GroupBy, TGroupBy};
 use crate::having::{Having, THaving};
@@ -27,7 +28,7 @@ pub struct Select<'a, TABLE: StructSqlTable, TW: TWhere<'a>> {
     pub r#for:    Option<For>,
 }
 
-impl<'a, FROM: StructSqlTable, TW: TWhere<'a>> Select<'a, FROM, TW> {
+impl<'a, FROM: StructSqlTable + Clone, TW: TWhere<'a> + Clone> Select<'a, FROM, TW> {
     pub fn sql_command(self) -> Sql<'a> {
         let mut b = SqlBuilder::default();
 
@@ -60,5 +61,37 @@ impl<'a, FROM: StructSqlTable, TW: TWhere<'a>> Select<'a, FROM, TW> {
         }
 
         b.sql_command()
+    }
+}
+
+impl<'a, TABLE, TW> TLockPlanSql<'a> for Select<'a, TABLE, TW>
+where
+    TABLE: StructSqlTable + Clone,
+    TW: TWhere<'a> + Clone,
+{
+    fn to_lock_query(&self) -> (String, Sql<'a>, fn(&tokio_postgres::Row) -> String) {
+        let mut table_builder = SqlBuilder::default();
+        self.from.struct_sql_table(&mut table_builder);
+        let table_name = table_builder.sql_command().0;
+
+        let primary_keys = self.from.primary_key();
+
+        let lock_select = Select {
+            columns:  primary_keys,
+            from:     self.from.clone(),
+            r#where:  self.r#where.clone(),
+            group_by: None,
+            having:   None,
+            order_by: None,
+            limit:    None,
+            offset:   None,
+            r#for:    None,
+        };
+
+        (
+            table_name,
+            lock_select.sql_command(),
+            TABLE::primary_key_values_to_string_from_row,
+        )
     }
 }

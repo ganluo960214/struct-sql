@@ -125,24 +125,24 @@ impl Table {
             Span::call_site(),
         )
     }
-    fn empty_update_ident(&self) -> Ident {
-        Ident::new(
-            format!("{}EmptyUpdate", self.derive_struct_name).as_str(),
-            Span::call_site(),
-        )
-    }
-    fn empty_insert_ident(&self) -> Ident {
-        Ident::new(
-            format!("{}EmptyInsert", self.derive_struct_name).as_str(),
-            Span::call_site(),
-        )
-    }
-    fn empty_delete_ident(&self) -> Ident {
-        Ident::new(
-            format!("{}EmptyDelete", self.derive_struct_name).as_str(),
-            Span::call_site(),
-        )
-    }
+    // fn empty_update_ident(&self) -> Ident {
+    //     Ident::new(
+    //         format!("{}EmptyUpdate", self.derive_struct_name).as_str(),
+    //         Span::call_site(),
+    //     )
+    // }
+    // fn empty_insert_ident(&self) -> Ident {
+    //     Ident::new(
+    //         format!("{}EmptyInsert", self.derive_struct_name).as_str(),
+    //         Span::call_site(),
+    //     )
+    // }
+    // fn empty_delete_ident(&self) -> Ident {
+    //     Ident::new(
+    //         format!("{}EmptyDelete", self.derive_struct_name).as_str(),
+    //         Span::call_site(),
+    //     )
+    // }
 
     fn to_token_stream(&self) -> Result<TokenStream, Error> {
         let fields_attr: Vec<DeriveStructFieldAttrColumn> =
@@ -151,7 +151,7 @@ impl Table {
             )?;
 
         // struct impl StructSqlTable trait
-        let struct_impl_struct_sql_table_token = generate_impl_struct_sql_table(self);
+        let struct_impl_struct_sql_table_token = generate_impl_struct_sql_table(self, &fields_attr);
 
         // // struct impl from_row
         let struct_impl_from_row = generate_struct_impl_from_row_and_rows(self, &fields_attr);
@@ -210,22 +210,22 @@ trait A {
     fn enum_all_fields_ident(&self) -> Ident;
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 struct DeriveStructFieldAttrColumn {
     derive_struct_field_name: String,
-
+    data_type:                Type,
     // ATTR_COLUMN_META_PATH_NAME_LITERAL
-    sql_field_name:     Option<String>,
+    sql_field_name:           Option<String>,
     // ATTR_COLUMN_META_PATH_SENSITIVE_LITERAL
-    is_sensitive:       bool,
+    is_sensitive:             bool,
     // ATTR_COLUMN_META_PATH_COMPOSITE_TYPE_LITERAL
-    composite_type:     Option<String>,
+    composite_type:           Option<String>,
     // ATTR_COLUMN_META_PATH_IS_INDEXED_LITERAL
-    is_indexed:         bool,
+    is_indexed:               bool,
     // ATTR_COLUMN_META_PATH_IS_PRIMARY_KEY_LITERAL
-    is_primary_key_key: bool,
+    is_primary_key_key:       bool,
     // ATTR_COLUMN_META_PATH_IS_UNIQUE_LITERAL
-    is_unique_key:      bool,
+    is_unique_key:            bool,
 }
 
 impl DeriveStructFieldAttrColumn {
@@ -268,6 +268,7 @@ impl DeriveStructFieldAttrColumn {
                     None => ident.to_string(),
                     Some(v) => v.to_string(),
                 },
+                data_type:                field.ty.clone(),
                 sql_field_name:           None,
                 is_sensitive:             false,
                 composite_type:           None,
@@ -482,7 +483,8 @@ fn generate_struct_impl_from_row_and_rows(
         .iter()
         .map(|column| {
             let name = &column.enum_item_ident();
-            quote!(#enum_field_ident::#name => it.#name = row.get(column.name()),)
+            let data_type = &column.data_type;
+            quote!(#enum_field_ident::#name => it.#name = row.get::<_, #data_type>(column.name()),)
         })
         .collect();
 
@@ -515,9 +517,34 @@ fn generate_struct_impl_from_row_and_rows(
     }
 }
 
-fn generate_impl_struct_sql_table(table: &Table) -> TokenStream {
+fn generate_impl_struct_sql_table(
+    table: &Table,
+    columns: &[DeriveStructFieldAttrColumn],
+) -> TokenStream {
     let enum_field_ident: Ident = table.enum_field_ident();
     let sql_table_name: String = format!("\"{}\"", table.sql_table_name.clone());
+
+    let primary_key_enum_item: Vec<TokenStream> = columns
+        .iter()
+        .filter(|column| column.is_primary_key_key)
+        .map(|column| {
+            let name = &column.enum_item_ident();
+            quote!(#enum_field_ident::#name)
+        })
+        .collect();
+
+    let match_enum_items_identsa: Vec<TokenStream> = columns
+        .iter()
+        .filter(|column| column.is_primary_key_key)
+        .map(|column| {
+            let name = &column.derive_struct_field_name;
+            let r#type = &column.data_type;
+            // let name = &column.derive_struct_field_name;
+            //  "uuid" => row.get::<_, Uuid>(column.name()).to_string(),
+            quote!(#name => row.get::<_, #r#type>(column.name()).to_string(),)
+        })
+        .collect();
+
     quote! {
         impl struct_sql::struct_sql_table::StructSqlTable for #enum_field_ident {
             type FIELD = #enum_field_ident;
@@ -526,6 +553,23 @@ fn generate_impl_struct_sql_table(table: &Table) -> TokenStream {
                 builder: &mut struct_sql::sql_builder::SqlBuilder,
             ) {
                 builder.write_sql(#sql_table_name);
+            }
+            fn primary_key(&self) -> Vec<#enum_field_ident> {
+                vec![#(#primary_key_enum_item),*]
+            }
+
+            fn primary_key_values_to_string_from_row(row: &tokio_postgres::Row) -> String {
+                // debug_assert!()
+
+                row.columns()
+                    .iter()
+                    .map(|column| match column.name() {
+                        // "uuid" => row.get::<_, Uuid>(column.name()).to_string(),
+                        #(#match_enum_items_identsa)*
+                        _ => "".to_string(),
+                    })
+                    .collect::<Vec<String>>()
+                    .join(",")
             }
         }
     }
@@ -764,9 +808,9 @@ fn generate_empty_select_update_delete_insert(
 ) -> TokenStream {
     let empty_select_ident = r#struct.empty_select_ident();
     let empty_selectv2_ident = r#struct.empty_selectv2_ident();
-    let empty_update_ident = r#struct.empty_update_ident();
-    let empty_insert_ident = r#struct.empty_insert_ident();
-    let empty_delete_ident = r#struct.empty_delete_ident();
+    // let empty_update_ident = r#struct.empty_update_ident();
+    // let empty_insert_ident = r#struct.empty_insert_ident();
+    // let empty_delete_ident = r#struct.empty_delete_ident();
 
     let enum_field_ident: Ident = r#struct.enum_field_ident();
     let first_column = columns[0].enum_item_ident();

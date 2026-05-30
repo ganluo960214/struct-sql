@@ -1,5 +1,6 @@
 pub mod sql_builder;
 
+pub mod deadlock;
 pub mod sql_delete;
 pub mod sql_insert;
 pub mod sql_select;

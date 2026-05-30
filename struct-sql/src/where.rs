@@ -20,3 +20,11 @@ impl<'a, C: TCondition<'a>> TWhere<'a> for Vec<C> {
             .for_each(|condition| condition.condition(sql_builder))
     }
 }
+
+impl<'a, T: TWhere<'a>> TWhere<'a> for Option<T> {
+    fn r#where(&self, sql_builder: &mut SqlBuilder<'a>) {
+        if let Some(inner) = self {
+            inner.r#where(sql_builder);
+        }
+    }
+}

@@ -7,17 +7,6 @@ pub trait Column: Debug + Eq + PartialEq + Hash {
     fn is_indexed(&self) -> bool;
 }
 
-// #[derive(Debug,Eq,PartialEq,Hash)]
-// pub struct DummyColumn;
-// impl Column for DummyColumn {
-//     fn column(&self, _builder: &mut SqlBuilder) {
-//     }
-
-//     fn is_indexed(&self) -> bool {
-//         false
-//     }
-// }
-
 pub type ColumnVec<Column> = Vec<Column>;
 
 pub trait TColumns<'a> {

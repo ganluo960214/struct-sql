@@ -1,6 +1,6 @@
 use crate::sql_builder::SqlBuilder;
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum For {
     Update,
     UpdateSkipLocked,
