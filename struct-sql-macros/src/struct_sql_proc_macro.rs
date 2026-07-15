@@ -484,7 +484,16 @@ fn generate_struct_impl_from_row_and_rows(
         .map(|column| {
             let name = &column.enum_item_ident();
             let data_type = &column.data_type;
-            quote!(#enum_field_ident::#name => it.#name = row.get::<_, #data_type>(column.name()),)
+            quote!(
+                #enum_field_ident::#name => {
+                    match row.try_get::<_, #data_type>(column.name()) {
+                        Ok(val) => it.#name = val,
+                        Err(err) => {
+                            ::struct_sql::log::error!("Failed to get column '{}': {:#?}", column.name(), err);
+                        }
+                    }
+                }
+            )
         })
         .collect();
 

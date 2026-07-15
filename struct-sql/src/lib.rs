@@ -32,3 +32,6 @@ pub mod r#where;
 // pub mod join;
 
 pub use struct_sql_derive::StructSql;
+
+#[doc(hidden)]
+pub use log;
